@@ -11,10 +11,12 @@ fn main() {
         process::exit(1);
     });
 
-    if let Err(e) = lib::run(name) {
+    let res = lib::run(name).unwrap_or_else(|e| {
         println!("Application error: {}", e);
         process::exit(1);
-    }
+    });
+
+    println!("{:?}", res);
 }
 
 fn parse_name(args: &[String]) -> Result<&[String], &'static str> {

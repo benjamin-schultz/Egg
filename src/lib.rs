@@ -1,15 +1,14 @@
 use std::error::Error;
 use std::fs;
-use std::collections::HashSet;
 
 const ANIMALS_FILE: &str = "./animals.txt";
 
-pub fn run(name: &[String]) -> Result<(), Box<dyn Error>> {
+pub fn run(name: &[String]) -> Result<Vec<String>, Box<dyn Error>> {
     let animals = load_animals()?;
 
-    find_animals(&name, &animals);
+    let res = find_animals(&name, &animals);
 
-    Ok(())
+    Ok(res)
 }
 
 // Load list of animals from file
@@ -19,17 +18,16 @@ fn load_animals() -> Result<String, Box<dyn Error>> {
 }
 
 // Main function to determine which animals match the names best
-fn find_animals<'a>(names: &[String], animals: &'a str) -> Vec<&'a str> {
-    let mut chosen_animals = HashSet::new();
+fn find_animals<'a>(names: &[String], animals: &'a str) -> Vec<String> {
+    let mut chosen_animals = Vec::new();
 
     let frags = build_frags(&names);
 
     for frag in frags {
-        let nextset = pick_animals(&frag, &animals);
-        chosen_animals.extend(nextset);
+        pick_animals(&frag, &animals, &mut chosen_animals);
     }
 
-    chosen_animals.into_iter().collect::<Vec<&str>>()
+    chosen_animals.into_iter().collect::<Vec<String>>()
 }
 
 // Create a vector of all the names and their fragments
@@ -37,7 +35,7 @@ fn build_frags(names: &[String]) -> Vec<&str> {
     let mut result = Vec::new();
 
     let max_size = names.iter().max_by_key(|s| s.len()).unwrap().len();
-    for i in (0..max_size+1).rev() {
+    for i in (0..max_size + 1).rev() {
         for name in names {
             if i <= name.len() && i != 0 {
                 result.push(&name[..i])
@@ -50,21 +48,31 @@ fn build_frags(names: &[String]) -> Vec<&str> {
 
 // Reads through the list of animals and extracts any animals that match the fragments
 // A hashset is used to remove duplicates
-fn pick_animals<'a>(frag: &str, animals: &'a str) -> HashSet<&'a str> {
-    let mut chosen_animals = HashSet::new();
-
+fn pick_animals<'a>(frag: &str, animals: &'a str, set: &mut Vec<String>) {
     for animal in animals.lines() {
         if animal.contains(frag) {
-            chosen_animals.insert(animal);
+            // Find any existing examples of this animal with different cases
+            let existing = set.iter().position(|x| animal.eq_ignore_ascii_case(x));
+
+            // If the animal is already in here, capitalize the fragment we are looking at and replace
+            if let Some(index) = existing {
+                let mut cur = set[index].clone();
+                set.remove(index);
+                cur = cur.replacen(frag, &frag.to_uppercase(), 1);
+                set.push(cur);
+            } else {
+                // If the animal is new, capitalize the area of interest and insert
+                let cur = animal.replacen(frag, &frag.to_uppercase(), 1);
+                set.push(cur);
+            }
         }
     }
-
-    chosen_animals
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn name_is_animal() {
@@ -75,7 +83,7 @@ mod tests {
         println!("{}", &&name[0][..]);
         println!("{:?}", matches);
 
-        assert!(matches.contains(&&name[0][..]));
+        assert!(matches.contains(&"CATTLE".to_string()));
     }
 
     #[test]
@@ -87,14 +95,14 @@ mod tests {
         println!("{}", &name[0]);
         println!("{:?}", matches);
 
-        assert!(matches.contains(&&name[0][..]));
+        assert!(matches.contains(&"CAT".to_string()));
     }
 
     #[test]
     fn partial_name() {
         let name = ["cat".to_string()];
         let animals = load_animals().expect("load file error");
-        let mut matches = find_animals(&name, &animals);
+        let matches = find_animals(&name, &animals);
 
         println!("{:?}", name);
         println!("{:?}", matches);
@@ -107,10 +115,14 @@ mod tests {
             }
         }
 
-        matches.sort();
+        let mut matches_comp = Vec::new();
+        for word in matches {
+            matches_comp.push(word.to_lowercase());
+        }
+        matches_comp.sort();
         results.sort();
 
-        assert_eq!(results, matches);
+        assert_eq!(results, matches_comp);
     }
 
     #[test]
@@ -122,6 +134,20 @@ mod tests {
         println!("{:?}", names);
         println!("{:?}", matches);
 
-        assert!(matches.contains(&"wombat"));
+        assert!(matches.contains(&"WomBAT".to_string()));
+    }
+
+    #[test]
+    fn test_for_dups() {
+        let names = ["test".to_string(), "something".to_string()];
+        let animals = load_animals().expect("Load file error");
+        let matches = find_animals(&names, &animals);
+
+        assert!(has_unique_elements(matches));
+    }
+
+    fn has_unique_elements(iter: Vec<String>) -> bool {
+        let mut uniq = HashSet::new();
+        iter.into_iter().all(move |x| uniq.insert(x.to_lowercase()))
     }
 }
