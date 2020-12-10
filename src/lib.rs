@@ -1,37 +1,24 @@
 use std::error::Error;
-use std::fs;
-use std::collections::HashMap;
 
-const ANIMALS_FILE: &str = "./animals.txt";
-
-
-pub fn run(name: &[String]) -> Result<Vec<String>, Box<dyn Error>> {
-    let animals = load_animals()?;
-
+pub fn run(name: &[String], animals: &str) -> Result<Vec<(String, usize)>, Box<dyn Error>> {
     let res = find_animals(&name, &animals);
 
     Ok(res)
 }
 
-// Load list of animals from file
-fn load_animals() -> Result<String, Box<dyn Error>> {
-    let result = fs::read_to_string(ANIMALS_FILE)?.to_lowercase();
-    Ok(result)
-}
-
 // Main function to determine which animals match the names best
-fn find_animals<'a>(names: &'a [String], animals: &str) -> Vec<String> {
+fn find_animals(names: &[String], animals: &str) -> Vec<(String, usize)> {
     let mut chosen_animals = Vec::new();
 
-    let frags = build_frags(&names);
-
-    for frag in frags {
-        pick_animals(&frag, &animals, &mut chosen_animals);
+    for name in names {
+        let frags = build_frag_single_word(name);
+        let mut offset_vec = Vec::new();
+        for frag in frags {
+            pick_animals(&frag, &animals, &mut chosen_animals, 5, &mut offset_vec);
+        }
     }
 
-    let ranked = order_animals(&mut chosen_animals);
-
-    ranked.iter().map(|(a, _)| a.clone()).collect()
+    order_animals(&mut chosen_animals).clone()
 }
 
 fn order_animals(set: &mut Vec<(String, usize)>) -> &Vec<(String, usize)> {
@@ -39,33 +26,31 @@ fn order_animals(set: &mut Vec<(String, usize)>) -> &Vec<(String, usize)> {
     set
 }
 
-// Create a vector of all the names and their fragments
-fn build_frags(names: &[String]) -> Vec<&str> {
+fn build_frag_single_word(name: &String) -> Vec<&str> {
     let mut result = Vec::new();
-
-    let max_size = names.iter().max_by_key(|s| s.len()).unwrap().len();
-    for i in (0..max_size + 1).rev() {
-        for name in names {
-            if i <= name.len() && i != 0 {
-                result.push(&name[..i])
-            }
-        }
+    for i in (1..name.len()+1).rev() {
+        result.push(&name[..i]);
     }
-
     result
 }
 
 // Reads through the list of animals and extracts any animals that match the fragments
 // A hashset is used to remove duplicates
-fn pick_animals(frag: &str, animals: &str, set: &mut Vec<(String, usize)>) {
+fn pick_animals<'a>(frag: &str, animals: &'a str, set: &mut Vec<(String, usize)>, offset: usize, offset_vec: & mut Vec<&'a str>) {
+
     for animal in animals.lines() {
         if animal.contains(frag) {
             // Find any existing examples of this animal with different cases
             let existing = set.iter().position(|x| animal.eq_ignore_ascii_case(&x.0));
             let mut count = frag.len();
+            if !offset_vec.contains(&animal) {
+                count = frag.len() + offset;
+                offset_vec.push(&animal);
+            }
+
             // If the animal is already in here, capitalize the fragment we are looking at and replace
             if let Some(index) = existing {
-                let mut cur = set[index].clone();
+                let cur = set[index].clone();
                 let mut cur_name = cur.0;
                 let cur_count = cur.1;
                 set.remove(index);
@@ -76,6 +61,7 @@ fn pick_animals(frag: &str, animals: &str, set: &mut Vec<(String, usize)>) {
                 let cur_name = animal.replacen(frag, &frag.to_uppercase(), 1);
                 set.push((cur_name, count));
             }
+            
         }
     }
 }
