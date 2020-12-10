@@ -16,7 +16,8 @@ fn main() {
         process::exit(1);
     });
 
-    println!("{:?}", res);
+    print_animals(res);
+    process::exit(0);
 }
 
 fn parse_name(args: &[String]) -> Result<&[String], &'static str> {
@@ -25,4 +26,10 @@ fn parse_name(args: &[String]) -> Result<&[String], &'static str> {
     }
 
     Ok(&args[1..])
+}
+
+fn print_animals(set: Vec<String>) {
+    for animal in set {
+        println!("{}", animal);
+    }
 }

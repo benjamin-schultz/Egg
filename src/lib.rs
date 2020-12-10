@@ -20,8 +20,8 @@ fn load_animals() -> Result<String, Box<dyn Error>> {
 }
 
 // Main function to determine which animals match the names best
-fn find_animals<'a>(names: &[String], animals: &'a str) -> Vec<String> {
-    let mut chosen_animals = HashMap::new();
+fn find_animals<'a>(names: &'a [String], animals: &str) -> Vec<String> {
+    let mut chosen_animals = Vec::new();
 
     let frags = build_frags(&names);
 
@@ -29,7 +29,14 @@ fn find_animals<'a>(names: &[String], animals: &'a str) -> Vec<String> {
         pick_animals(&frag, &animals, &mut chosen_animals);
     }
 
-    chosen_animals.into_iter().collect::<Vec<String>>()
+    let ranked = order_animals(&mut chosen_animals);
+
+    ranked.iter().map(|(a, _)| a.clone()).collect()
+}
+
+fn order_animals(set: &mut Vec<(String, usize)>) -> &Vec<(String, usize)> {
+    set.sort_by(|a, b| b.1.cmp(&a.1));
+    set
 }
 
 // Create a vector of all the names and their fragments
@@ -50,24 +57,24 @@ fn build_frags(names: &[String]) -> Vec<&str> {
 
 // Reads through the list of animals and extracts any animals that match the fragments
 // A hashset is used to remove duplicates
-fn pick_animals<'a>(frag: &str, animals: &'a str, set: &mut HashMap<String, usize>) {
+fn pick_animals(frag: &str, animals: &str, set: &mut Vec<(String, usize)>) {
     for animal in animals.lines() {
         if animal.contains(frag) {
             // Find any existing examples of this animal with different cases
-            let existing = set.iter().find(|x| animal.eq_ignore_ascii_case(x.0));
-            let count = frag.len();
+            let existing = set.iter().position(|x| animal.eq_ignore_ascii_case(&x.0));
+            let mut count = frag.len();
             // If the animal is already in here, capitalize the fragment we are looking at and replace
-            if let Some(item) = existing {
-                let old_entry = set.remove_entry(item.0);
-                let cur = item.0.replacen(frag, &frag.to_uppercase(), 1);
-                if let Some((_, old_count)) = old_entry {
-                    count = count + old_count;
-                }
-                set.insert(cur, count);
+            if let Some(index) = existing {
+                let mut cur = set[index].clone();
+                let mut cur_name = cur.0;
+                let cur_count = cur.1;
+                set.remove(index);
+                cur_name = cur_name.replacen(frag, &frag.to_uppercase(), 1);
+                set.push((cur_name, count + cur_count));
             } else {
                 // If the animal is new, capitalize the area of interest and insert
-                let cur = animal.replacen(frag, &frag.to_uppercase(), 1);
-                set.insert(cur, count);
+                let cur_name = animal.replacen(frag, &frag.to_uppercase(), 1);
+                set.push((cur_name, count));
             }
         }
     }
