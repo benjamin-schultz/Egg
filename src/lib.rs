@@ -1,7 +1,9 @@
 use std::error::Error;
 use std::fs;
+use std::collections::HashMap;
 
 const ANIMALS_FILE: &str = "./animals.txt";
+
 
 pub fn run(name: &[String]) -> Result<Vec<String>, Box<dyn Error>> {
     let animals = load_animals()?;
@@ -19,7 +21,7 @@ fn load_animals() -> Result<String, Box<dyn Error>> {
 
 // Main function to determine which animals match the names best
 fn find_animals<'a>(names: &[String], animals: &'a str) -> Vec<String> {
-    let mut chosen_animals = Vec::new();
+    let mut chosen_animals = HashMap::new();
 
     let frags = build_frags(&names);
 
@@ -48,22 +50,24 @@ fn build_frags(names: &[String]) -> Vec<&str> {
 
 // Reads through the list of animals and extracts any animals that match the fragments
 // A hashset is used to remove duplicates
-fn pick_animals<'a>(frag: &str, animals: &'a str, set: &mut Vec<String>) {
+fn pick_animals<'a>(frag: &str, animals: &'a str, set: &mut HashMap<String, usize>) {
     for animal in animals.lines() {
         if animal.contains(frag) {
             // Find any existing examples of this animal with different cases
-            let existing = set.iter().position(|x| animal.eq_ignore_ascii_case(x));
-
+            let existing = set.iter().find(|x| animal.eq_ignore_ascii_case(x.0));
+            let count = frag.len();
             // If the animal is already in here, capitalize the fragment we are looking at and replace
-            if let Some(index) = existing {
-                let mut cur = set[index].clone();
-                set.remove(index);
-                cur = cur.replacen(frag, &frag.to_uppercase(), 1);
-                set.push(cur);
+            if let Some(item) = existing {
+                let old_entry = set.remove_entry(item.0);
+                let cur = item.0.replacen(frag, &frag.to_uppercase(), 1);
+                if let Some((_, old_count)) = old_entry {
+                    count = count + old_count;
+                }
+                set.insert(cur, count);
             } else {
                 // If the animal is new, capitalize the area of interest and insert
                 let cur = animal.replacen(frag, &frag.to_uppercase(), 1);
-                set.push(cur);
+                set.insert(cur, count);
             }
         }
     }
