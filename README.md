@@ -1,4 +1,4 @@
-## Egg
+# Egg
 An application that will take words and give you a list of animal names ranked based on how similar they are to the words.
 
 ---
