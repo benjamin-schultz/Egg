@@ -18,6 +18,14 @@ To Do List:
 - [ ] Improve the list of animals
 - [ ] Update tests
 
+## Usage
+
+```
+$ ./egg.exe [Number of ranks] [All words, seperated by spaces]
+```
+
+Returns a list of animal names grouped based on how well they match the input words. The groups are sorted with the highest match rank at the top and decreasing from there. `[Number of ranks]` determines how many groups will be displayed (E.g if `[Number of ranks]` is 2, then it will show the top 2 groups of animal names). Characters from the input words that match in the animal name are emphasised with **CAPS**.
+
 ## Code Example
 
 ```
